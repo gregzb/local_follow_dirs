@@ -4,19 +4,32 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-int main() {
-  char * dir_name = "./";
+#include <string.h>
 
+void print_size(int size) {
+  double f_size = size;
+  char * size_names[] = {"B", "KB", "MB", "GB"};
+  int num_names = 4;
+  int i = 0;
+  while (f_size >= 1000 && i < num_names) {
+    f_size /= 1000.0;
+    i++;
+  }
+
+  printf("%lf %s", f_size, size_names[i]);
+}
+
+int traverse_dir(char * dir_name, int level) {
   int total_size = 0;
-
-  printf("Directory Name: %s", dir_name);
-
   DIR * dir_stream = opendir(dir_name);
 
   struct dirent * file;
   while ((file = readdir(dir_stream)) != NULL) {
     struct stat fileStats;
-    stat(file->d_name, &fileStats);
+    char temp[1024];
+    strcpy(temp, dir_name);
+    strcat(temp, file->d_name);
+    stat(temp, &fileStats);
 
     int str_size = 11;
     char perm_str[] = "drwxrwxrwx";
@@ -33,12 +46,39 @@ int main() {
   		perm_str[0] = '-';
   	}
 
+    int cnt;
+    for (cnt = 0; cnt < level; cnt++) {
+      printf("    ");
+    }
+
   	printf("%s %s\n", perm_str, file->d_name);
+
+    if ((fileStats.st_mode & S_IFDIR)) {
+      if (strcmp(".", file->d_name) != 0 && strcmp("..", file->d_name) != 0) {
+        char new_path[1024];
+        strcpy(new_path, dir_name);
+        strcat(new_path, file->d_name);
+        strcat(new_path, "/");
+
+        total_size += traverse_dir(new_path, level + 1);
+      }
+  	}
   }
 
   closedir(dir_stream);
+  return total_size;
+}
 
-  printf("Total Size: %d GB %d MB %d KB %d B\n", total_size/1000000000%1000, total_size/1000000%1000, total_size/1000%1000, total_size%1000);
+int main() {
+  char * dir_name = "./";
+
+  printf("Directory Name: %s\n", dir_name);
+
+  int total_size = traverse_dir(dir_name, 0);
+
+  printf("Total Size: ");
+  print_size(total_size);
+  printf("\n");
 
   return 0;
 }
